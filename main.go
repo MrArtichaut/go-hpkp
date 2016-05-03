@@ -199,12 +199,14 @@ func (h *HpkpRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 func (h *HpkpRoundTripper) updateHpkpConfig(req *http.Request, resp *http.Response) {
+	reportOnly := false
 	header := resp.Header.Get("Public-Key-Pins")
 	if header == "" {
 		header = resp.Header.Get("public-key-pins-report-only")
 		if header == "" {
 			return
 		}
+		reportOnly = true
 	}
 
 	fmt.Println("pin header", header)
@@ -218,11 +220,15 @@ func (h *HpkpRoundTripper) updateHpkpConfig(req *http.Request, resp *http.Respon
 	fmt.Println("New or update hpkp config")
 
 	config := parseHpkpHeader(header)
-	h.hpkpConfigHash = hash[:]
-	h.hpkpConfig = &HpkpClientConfig{HpkpConfig: *config}
-	h.hpkpConfig.notedHostname = req.Host
+	config.ReportOnly = reportOnly
+
+	h.hpkpConfig = &HpkpClientConfig{
+		HpkpConfig:       config,
+		h.hpkpConfigHash: hash[:],
+		notedHostname:    req.Host,
+		notedDate:        time.Now()}
+
 	fmt.Println("noted hostname", h.hpkpConfig.notedHostname)
-	h.hpkpConfig.notedDate = time.Now()
 	h.needCheck = true
 }
 
@@ -297,7 +303,7 @@ func pinFromPublicDERPKey(b []byte) string {
 	return base64.StdEncoding.EncodeToString(digest[:])
 }
 
-func parseHpkpHeader(h string) *HpkpConfig {
+func parseHpkpHeader(h string) HpkpConfig {
 	pinsRegExp, err := regexp.Compile("pin-sha256=\"([A-z0-9+=/]+)\"")
 	check(err)
 
@@ -335,7 +341,7 @@ func parseHpkpHeader(h string) *HpkpConfig {
 
 	config.IncludeSubdomains = strings.Contains(h, "includeSubdomains")
 
-	return &config
+	return config
 }
 
 func check(err error, v ...interface{}) {
