@@ -87,7 +87,7 @@ func Hpkp(config HpkpConfig, handler http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add(headerName, headerValue)
+		w.Header().Set(headerName, headerValue)
 		handler.ServeHTTP(w, r)
 	})
 }
@@ -124,15 +124,39 @@ func NewHpkpRoundTripper() http.RoundTripper {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 	h := &HpkpRoundTripper{roundTripper: t}
-	t.DialTLS = h.Dial
+	t.DialTLS = h.DialTLS
 	return h
+}
+
+func NewHpkpRoundTripperWithTransport(t *http.Transport) {
+	h := &HpkpRoundTripper{roundTripper: t}
+
+	if t.DialTLS == nil {
+		t.DialTLS = h.DialTLS
+	} else {
+		dialer := t.DialTLS
+		t.DialTLS = func(network, addr string) (net.Conn, error) {
+			conn, err := dialer(network, addr)
+			if err != nil {
+				return conn, err
+			}
+
+			state := conn.ConnectionState()
+			h.tlsState = &state
+
+			fmt.Println("Connection state retrieved")
+
+			return conn, err
+		}
+
+	}
 }
 
 type hpkpMonitor struct {
 	notedHosts map[string]HpkpClientConfig
 }
 
-func (h *HpkpRoundTripper) Dial(network, addr string) (net.Conn, error) {
+func (h *HpkpRoundTripper) DialTLS(network, addr string) (net.Conn, error) {
 	conn, err := tls.Dial(network, addr, nil)
 	if err != nil {
 		return conn, err
