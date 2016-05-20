@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	client := &http.Client{Transport: NewRoundTripper()}
+	client := &http.Client{Transport: NewDefaultRoundTripper()}
 
 	resp, err := client.Get("https://report-uri.io/home/tools")
 	check(err)
@@ -51,5 +51,3 @@ func (hrp *HpkpReportHandler) ServeHTTP(rw http.ResponseWriter, req *http.Reques
 type hpkpMonitor struct {
 	notedHosts map[string]clientConfig
 }
-
-type Logger func(a ...interface{})

@@ -81,8 +81,6 @@ func (h *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, err
 	}
 
-	fmt.Println("host: ", req.Host)
-
 	err = h.updateConfig(req, resp)
 	if err != nil {
 		return resp, err
@@ -125,7 +123,7 @@ func (h *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	//No cert matching know pins
 	if h.config.ReportUri != nil {
-
+		//Build and send report
 	}
 
 	fmt.Println("BAD PINNING")
@@ -234,8 +232,7 @@ func newHeaderParsingError(details string) error {
 }
 
 func parseHeader(h string) (HpkpConfig, error) {
-	pinsRegExp, err := regexp.Compile("pin-sha256=\"([A-z0-9+=/]+)\"")
-	must(err)
+	pinsRegExp := regexp.MustCompile("pin-sha256=\"([A-z0-9+=/]+)\"")
 
 	pinsMatches := pinsRegExp.FindAllStringSubmatch(h, math.MaxInt32)
 	if pinsMatches == nil {
@@ -247,22 +244,20 @@ func parseHeader(h string) (HpkpConfig, error) {
 		pins[idx] = m[1]
 	}
 
-	maxAgeRegExp, err := regexp.Compile("max-age=([0-9]+)")
-	must(err)
+	maxAgeRegExp := regexp.MustCompile("max-age=([0-9]+)")
 
 	maxAgeMatch := maxAgeRegExp.FindStringSubmatch(h)
 	if maxAgeMatch == nil {
 		return nil, newHeaderParsingError("no max age found")
 	}
 	maxAge, err := strconv.Atoi(maxAgeMatch[1])
-	if maxAgeMatch == nil {
+	if err != nil {
 		return nil, newHeaderParsingError("invalid max age value")
 	}
 
 	config := HpkpConfig{Pins: pins, MaxAge: uint(maxAge)}
 
-	reportUriRegExp, err := regexp.Compile("report-uri=\"(.+)\"")
-	must(err)
+	reportUriRegExp := regexp.MustCompile("report-uri=\"(.+)\"")
 
 	reportUriMatch := reportUriRegExp.FindStringSubmatch(h)
 	if len(reportUriMatch) > 0 {
@@ -274,10 +269,4 @@ func parseHeader(h string) (HpkpConfig, error) {
 	config.IncludeSubdomains = strings.Contains(h, "includeSubdomains")
 
 	return config
-}
-
-func must(err error) {
-	if err != nil {
-		panic("")
-	}
 }
